@@ -1,0 +1,23 @@
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains (IntelliJ / PyCharm / ecc.)
+.idea/
+*.iml
+
+# Claude Code — config locale della macchina, non condivisa
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+
+# Editor swap/backup
+*.swp
+*.swo
+*~
+
+# Secrets — mai committare la API key CrowdSec
+.env
+.env.*
+!.env.example

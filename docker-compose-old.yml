@@ -1,0 +1,26 @@
+services:
+  caddy:
+    image: lucaslorentz/caddy-docker-proxy:2.9-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CADDY_INGRESS_NETWORKS=caddy
+      - CADDY_LOG_LEVEL=DEBUG
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - caddy
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  caddy:
+    external: true
+

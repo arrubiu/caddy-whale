@@ -1,0 +1,30 @@
+services:
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.7.8
+    container_name: crowdsec
+    restart: unless-stopped
+    environment:
+      # Installa automaticamente i parser per i log di Caddy al primo avvio
+      - COLLECTIONS=crowdsecurity/caddy
+    volumes:
+      - crowdsec_data:/var/lib/crowdsec/data
+      - crowdsec_config:/etc/crowdsec
+      # Log di accesso Caddy (popolati solo quando i siti hanno le label caddy.log)
+      - caddy_logs:/var/log/caddy:ro
+      # Configurazione acquisizione log
+      - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.d/caddy.yaml:ro
+    ports:
+      # LAPI esposta solo su localhost — usata dal firewall bouncer sull'host
+      - "127.0.0.1:8080:8080"
+    networks:
+      - crowdsec
+
+volumes:
+  crowdsec_data:
+  crowdsec_config:
+  caddy_logs:
+    external: true
+
+networks:
+  crowdsec:
+    external: true

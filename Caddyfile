@@ -1,0 +1,23 @@
+{
+    # CrowdSec disattivato per ora: TODO riattivare, vedi README > TODO CrowdSec
+    # order crowdsec first
+
+    # Connessione al CrowdSec LAPI — la variabile viene iniettata da docker-compose
+    # crowdsec {
+    #     api_url http://crowdsec:8080
+    #     api_key {$CROWDSEC_BOUNCER_API_KEY}
+    #     ticker_interval 15s
+    #     enable_streaming
+    # }
+
+    # Log operativi di Caddy in JSON (errori, TLS, admin events)
+    # I log di accesso HTTP per-sito vanno configurati via label su ogni servizio
+    log {
+        output file /var/log/caddy/caddy.log {
+            roll_size 50mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format json
+    }
+}

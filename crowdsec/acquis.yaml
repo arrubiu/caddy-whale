@@ -1,0 +1,7 @@
+# Log di accesso HTTP di Caddy
+# Questi file vengono creati solo quando i siti hanno la label caddy.log configurata.
+# Finché non ci sono file, CrowdSec ignora silenziosamente questa acquisizione.
+filenames:
+  - /var/log/caddy/*.log
+labels:
+  type: caddy

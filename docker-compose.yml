@@ -1,0 +1,37 @@
+services:
+  caddy:
+    build: .
+    image: caddy-custom:latest
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CADDY_INGRESS_NETWORKS=caddy
+      - CADDY_LOG_LEVEL=INFO
+      # Dice a caddy-docker-proxy di usare il Caddyfile base (global options + log)
+      # Blocco CrowdSec nel Caddyfile disattivato per ora: vedi README > TODO CrowdSec
+      - CADDY_DOCKER_CADDYFILE_PATH=/etc/caddy/Caddyfile
+      # - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY}  # TODO: decommentare (vedi README > TODO CrowdSec)
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - caddy
+      # - crowdsec  # TODO: decommentare (vedi README > TODO CrowdSec)
+
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_logs:
+    external: true
+
+networks:
+  caddy:
+    external: true
+  # crowdsec:               # TODO: decommentare (vedi README > TODO CrowdSec)
+  #   external: true
