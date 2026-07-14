@@ -2,8 +2,22 @@
 # Configurazione base di Authelia: utenti su file YAML, storage SQLite,
 # notifiche su file locale. I tre segreti richiesti (JWT/session/storage)
 # NON vanno qui: sono passati come variabili d'ambiente dal
-# docker-compose.authelia.yml (vedi AUTHELIA_JWT_SECRET,
-# AUTHELIA_SESSION_SECRET, AUTHELIA_STORAGE_ENCRYPTION_KEY in .env).
+# docker-compose.yml (vedi AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE,
+# AUTHELIA_SESSION_SECRET_FILE, AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE).
+#
+# UN SOLO FILE, di proposito: Authelia supporta più file di configurazione,
+# ma quando la stessa sezione a lista (es. access_control.rules, o i client
+# oidc) è definita in più file NON viene unita — l'ultimo file caricato
+# sovrascrive interamente quello scritto prima negli altri, senza alcun
+# errore o avviso. Per questo qui dividiamo gli ambiti SOLO con commenti,
+# non con file separati: aggiungete pure ciascuno le proprie regole, ma
+# sempre in questo stesso file, sotto access_control.rules più in basso.
+#
+# ============================================================
+# SEZIONE CORE — non specifica di alcun sito, riguarda l'istanza
+# Authelia nel suo complesso (server, log, backend utenti, sessioni,
+# storage, notifiche). Non serve toccarla per aggiungere un dominio.
+# ============================================================
 
 server:
   address: 'tcp://0.0.0.0:9091'
@@ -20,9 +34,17 @@ authentication_backend:
     path: '/config/users_database.yml'
     watch: true   # ricarica il file utenti quando cambia, senza restart
 
+# ============================================================
+# SEZIONE ACCESS CONTROL — qui aggiungete i vostri domini, ciascuno
+# la propria parte, SEMPRE in questo file (vedi nota in cima sul perché
+# non si può splittare in file separati). Ogni nuovo dominio va aggiunto
+# alla lista "rules" più sotto, con un commento "# --- <nome> ---" a fare
+# da confine visivo tra le regole di una persona e quelle dell'altra.
+# ============================================================
+#
 # Nessun sito è ancora effettivamente gateato: quello si fa sito per sito,
 # con `forward_auth authelia:9091 {...}` nelle label del suo docker-compose
-# (vedi SECURITY-AUTH.md), non qui. Qui si decide solo QUALE policy si
+# (vedi authelia/README.md), non qui. Qui si decide solo QUALE policy si
 # applica a chi arriva.
 #
 # Regole ESPLICITE per dominio, niente wildcard: l'infrastruttura reale
@@ -60,6 +82,7 @@ authentication_backend:
 access_control:
   default_policy: 'deny'
   rules:
+    # --- ildeposito.org ---
     # Backend Drupal produzione — admin E redattore devono avere "ildeposito_prod"
     - domain: 'admin.ildeposito.org'
       subject:
@@ -93,6 +116,12 @@ access_control:
     # non deve mai avere `forward_auth` nelle label — un sito senza
     # forward_auth non consulta mai Authelia, a prescindere da cosa dice
     # default_policy.
+
+    # --- Domini di Sergej ---
+    # Aggiungi qui le tue regole, stesso pattern di ildeposito.org sopra.
+
+    # --- Domini di Ale ---
+    # Aggiungi qui le tue regole, stesso pattern di ildeposito.org sopra.
 #
 # Stesso principio per strumenti futuri del tutto diversi (Grafana,
 # Portainer): un gruppo dedicato per lo strumento, non un accesso implicito

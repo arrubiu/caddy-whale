@@ -1,17 +1,30 @@
-# Login per sito con Authelia
+# Authelia
 
-Guida a come proteggere singoli siti con [Authelia](https://www.authelia.com/)
-tramite `forward_auth` di Caddy — **niente OIDC**: un solo login su Authelia,
-niente client/secret/redirect_uri per app, niente restart di Authelia quando
-aggiungi un nuovo sito (solo quando cambi utenti/policy in modo strutturale).
-Setup base di Authelia (docker-compose, configuration.yml, secrets) in
-[docker-compose.authelia.yml](docker-compose.authelia.yml) e
-[authelia/](authelia/); gestione del servizio con [authelia.sh](authelia.sh).
+Login/SSO condiviso per proteggere singoli siti con
+[Authelia](https://www.authelia.com/) tramite `forward_auth` di Caddy —
+**niente OIDC**: un solo login su Authelia, niente client/secret/redirect_uri
+per app, niente restart di Authelia quando aggiungi un nuovo sito (solo
+quando cambi utenti/policy in modo strutturale).
 
-> Nota: il plugin `caddy-security` resta compilato nell'immagine
-> ([Dockerfile](Dockerfile)) ma non è la strada scelta — richiedeva OIDC/local
-> identity store con reload non garantito. Questo documento descrive la
-> soluzione effettivamente in uso: Authelia.
+> Nota: il plugin `caddy-security` resta compilato nell'immagine Caddy (vedi
+> [caddy/Dockerfile](../caddy/Dockerfile)) ma non è la strada scelta —
+> richiedeva OIDC/local identity store con reload non garantito. Questo
+> documento descrive la soluzione effettivamente in uso: Authelia.
+
+## Setup
+
+Config base in [configuration.yml](configuration.yml) (versionata, nessun
+segreto), utenti in `users_database.yml` (copia da
+[users_database.yml.example](users_database.yml.example), ignorato da git),
+segreti su file in `secrets/` (ignorati da git). Gestione del servizio con
+[script.sh](../script.sh) dalla root del repository.
+
+```bash
+docker network create caddy   # se non già creata (condivisa con Caddy)
+cp authelia/users_database.yml.example authelia/users_database.yml
+./script.sh authelia gen-secrets   # crea i secret mancanti in authelia/secrets/
+./script.sh authelia up
+```
 
 ## Concetti chiave
 
@@ -24,7 +37,7 @@ Setup base di Authelia (docker-compose, configuration.yml, secrets) in
 - **Dominio wildcard**: una sola regola `*.example.com` copre tutti i
   sottodomini presenti e futuri — non serve mappare ogni sito uno per uno.
 - **Nessun reload a caldo** per `access_control`/client/policy: dopo aver
-  cambiato `configuration.yml` o `oidc.yml` serve `./authelia.sh restart`.
+  cambiato `configuration.yml` o `oidc.yml` serve `./script.sh authelia restart`.
   Solo `users_database.yml` si ricarica da solo (`watch: true`).
 
 ---
@@ -71,8 +84,8 @@ Punti da tenere a mente (già verificati, non teoria):
   generica finché non aggiungi tu una regola specifica sopra. Non c'è modo di
   farselo ricordare automaticamente: è una checklist mentale, non una
   protezione del sistema.
-- Dopo aver cambiato `access_control`: `./authelia.sh validate` poi
-  `./authelia.sh restart`.
+- Dopo aver cambiato `access_control`: `./script.sh authelia validate` poi
+  `./script.sh authelia restart`.
 
 ---
 
@@ -221,17 +234,17 @@ per avere un solo login, non un'opzione "gratis".
 ## Gestione del servizio
 
 ```bash
-./authelia.sh start       # avvia
-./authelia.sh stop        # ferma senza rimuovere
-./authelia.sh restart     # ricrea — necessario dopo modifiche a
-                           # configuration.yml, oidc.yml, authelia/secrets/
-./authelia.sh validate    # valida configuration.yml prima di riavviare
-./authelia.sh status
-./authelia.sh logs
-./authelia.sh shell
-./authelia.sh gen-secrets            # crea i secret mancanti la prima volta
-./authelia.sh hash <password>        # hash per users_database.yml
-./authelia.sh hash-oidc <secret>     # hash per un eventuale client oidc.yml
+./script.sh authelia up             # avvia
+./script.sh authelia stop           # ferma senza rimuovere
+./script.sh authelia restart        # ricrea — necessario dopo modifiche a
+                                     # configuration.yml, oidc.yml, authelia/secrets/
+./script.sh authelia validate       # valida configuration.yml prima di riavviare
+./script.sh authelia ps
+./script.sh authelia logs
+./script.sh authelia shell
+./script.sh authelia gen-secrets            # crea i secret mancanti la prima volta
+./script.sh authelia hash <password>        # hash per users_database.yml
+./script.sh authelia hash-oidc <secret>     # hash per un eventuale client oidc.yml
 ```
 
 ---
@@ -243,3 +256,15 @@ dominio padre. Se due siti sono su domini di primo livello diversi (es.
 `app.example.com` e `app.altro-dominio.it`), ciascuno richiede un proprio
 login: niente sessione condivisa tra domini non imparentati, qualunque
 meccanismo di autenticazione si usi.
+
+## Struttura file
+
+```
+authelia/
+├── docker-compose.yml
+├── configuration.yml            # Config base (versionata, nessun segreto)
+├── users_database.yml.example   # Template — copia in users_database.yml (ignorato da git)
+├── secrets/                     # jwt/session/storage/oidc secret su file (ignorato da git)
+├── .env.example
+└── README.md
+```

@@ -12,7 +12,7 @@ services:
       # Log di accesso Caddy (popolati solo quando i siti hanno le label caddy.log)
       - caddy_logs:/var/log/caddy:ro
       # Configurazione acquisizione log
-      - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.d/caddy.yaml:ro
+      - ./acquis.yaml:/etc/crowdsec/acquis.d/caddy.yaml:ro
     ports:
       # LAPI esposta solo su localhost — usata dal firewall bouncer sull'host
       - "127.0.0.1:8080:8080"

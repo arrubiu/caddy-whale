@@ -10,13 +10,13 @@ services:
       - AUTHELIA_SESSION_SECRET_FILE=/secrets/session_secret
       - AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE=/secrets/storage_encryption_key
     volumes:
-      - ./authelia/configuration.yml:/config/configuration.yml:ro
-      - ./authelia/users_database.yml:/config/users_database.yml:ro
-      - ./authelia/secrets:/secrets:ro
+      - ./configuration.yml:/config/configuration.yml:ro
+      - ./users_database.yml:/config/users_database.yml:ro
+      - ./secrets:/secrets:ro
       - authelia_storage:/storage
       # Quando attivi identity_providers.oidc (Drupal/Grafana/Portainer),
       # crea authelia/oidc.yml (vedi oidc.yml.example) e aggiungi qui:
-      # - ./authelia/oidc.yml:/config/oidc.yml:ro
+      # - ./oidc.yml:/config/oidc.yml:ro
       # più, sopra, la variabile:
       # - X_AUTHELIA_CONFIG=/config/configuration.yml,/config/oidc.yml
     networks:
