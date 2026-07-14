@@ -1,0 +1,33 @@
+services:
+  authelia:
+    image: authelia/authelia:4.39.20
+    container_name: authelia
+    restart: unless-stopped
+    environment:
+      # Pattern raccomandato da Authelia: secret letti da file, non da env
+      # var in chiaro (visibili con `docker inspect`/`ps`).
+      - AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE=/secrets/jwt_secret
+      - AUTHELIA_SESSION_SECRET_FILE=/secrets/session_secret
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE=/secrets/storage_encryption_key
+    volumes:
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      - ./authelia/users_database.yml:/config/users_database.yml:ro
+      - ./authelia/secrets:/secrets:ro
+      - authelia_storage:/storage
+      # Quando attivi identity_providers.oidc (Drupal/Grafana/Portainer),
+      # crea authelia/oidc.yml (vedi oidc.yml.example) e aggiungi qui:
+      # - ./authelia/oidc.yml:/config/oidc.yml:ro
+      # più, sopra, la variabile:
+      # - X_AUTHELIA_CONFIG=/config/configuration.yml,/config/oidc.yml
+    networks:
+      - caddy
+    labels:
+      caddy: auth.example.com
+      caddy.reverse_proxy: "{{upstreams 9091}}"
+
+volumes:
+  authelia_storage:
+
+networks:
+  caddy:
+    external: true

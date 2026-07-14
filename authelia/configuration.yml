@@ -1,0 +1,125 @@
+---
+# Configurazione base di Authelia: utenti su file YAML, storage SQLite,
+# notifiche su file locale. I tre segreti richiesti (JWT/session/storage)
+# NON vanno qui: sono passati come variabili d'ambiente dal
+# docker-compose.authelia.yml (vedi AUTHELIA_JWT_SECRET,
+# AUTHELIA_SESSION_SECRET, AUTHELIA_STORAGE_ENCRYPTION_KEY in .env).
+
+server:
+  address: 'tcp://0.0.0.0:9091'
+
+log:
+  level: 'info'
+
+identity_validation:
+  reset_password:
+    jwt_algorithm: 'HS256'
+
+authentication_backend:
+  file:
+    path: '/config/users_database.yml'
+    watch: true   # ricarica il file utenti quando cambia, senza restart
+
+# Nessun sito è ancora effettivamente gateato: quello si fa sito per sito,
+# con `forward_auth authelia:9091 {...}` nelle label del suo docker-compose
+# (vedi SECURITY-AUTH.md), non qui. Qui si decide solo QUALE policy si
+# applica a chi arriva.
+#
+# Regole ESPLICITE per dominio, niente wildcard: l'infrastruttura reale
+# mescola domini da proteggere (i backend Drupal, il frontend di stage) e
+# un dominio pubblico statico (il frontend di produzione, Astro SSG) che
+# non deve MAI passare da Authelia. Con domini specifici, chi non è elencato
+# qui è semplicemente ignorato da Authelia (a patto che il suo docker-compose
+# non abbia affatto `forward_auth` — vedi nota sotto) invece di dover fidarsi
+# di un wildcard che "per fortuna" non copre anche il pubblico.
+#
+# Match per GRUPPO (definito in users_database.yml, ignorato da git) invece
+# che per username: così il vero nome dell'account non finisce mai in un
+# file versionato, e se l'utente cambia nome/account basta aggiornare
+# users_database.yml, non questo file.
+#
+# default_policy: deny + nessuna regola con policy "bypass" = gli anonimi
+# (nessun login) non entrano mai sui domini elencati qui sotto: one_factor e
+# two_factor richiedono comunque un'autenticazione valida, la differenza è
+# solo quanti fattori.
+#
+# Isolamento per AMBIENTE (prod/stage): "admins" NON è più passe-partout da
+# solo — serve anche il gruppo di ambiente giusto, con un AND esplicito
+# (sintassi a lista annidata: subject: [['group:admins', 'group:ildeposito_prod']]).
+# Così puoi avere admin diversi per stage e per prod (es. un account admin
+# solo su stage, gestito da chi non deve toccare la produzione), invece di
+# un unico admin con accesso automatico ovunque. Un utente "users" senza
+# alcun gruppo di ambiente non entra da nessuna parte, anche conoscendo la
+# password: serve sempre anche "ildeposito_prod" e/o "ildeposito_stage"
+# (vedi users_database.yml.example per esempi concreti).
+#
+# Il prefisso "ildeposito_" nel nome del gruppo non è decorativo: con più
+# siti in futuro, un gruppo generico "prod" sarebbe ambiguo tra siti diversi
+# (un utente "prod" di un altro sito matcherebbe per errore anche qui). Ogni
+# sito prende il proprio prefisso: "altrosito_prod", "altrosito_stage", ecc.
+access_control:
+  default_policy: 'deny'
+  rules:
+    # Backend Drupal produzione — admin E redattore devono avere "ildeposito_prod"
+    - domain: 'admin.ildeposito.org'
+      subject:
+        - ['group:admins', 'group:ildeposito_prod']
+      policy: 'two_factor'
+    - domain: 'admin.ildeposito.org'
+      subject: 'group:ildeposito_prod'
+      policy: 'one_factor'
+
+    # Backend Drupal stage — admin E redattore devono avere "ildeposito_stage"
+    - domain: 'admin-stage.ildeposito.org'
+      subject:
+        - ['group:admins', 'group:ildeposito_stage']
+      policy: 'two_factor'
+    - domain: 'admin-stage.ildeposito.org'
+      subject: 'group:ildeposito_stage'
+      policy: 'one_factor'
+
+    # Frontend stage (non pubblico: tutto l'ambiente stage resta dietro
+    # login) — stesso vincolo del backend stage
+    - domain: 'stage.ildeposito.org'
+      subject:
+        - ['group:admins', 'group:ildeposito_stage']
+      policy: 'two_factor'
+    - domain: 'stage.ildeposito.org'
+      subject: 'group:ildeposito_stage'
+      policy: 'one_factor'
+
+    # NESSUNA regola per il frontend di produzione (Astro SSG, statico,
+    # pubblico): non va aggiunto qui, e soprattutto il suo docker-compose
+    # non deve mai avere `forward_auth` nelle label — un sito senza
+    # forward_auth non consulta mai Authelia, a prescindere da cosa dice
+    # default_policy.
+#
+# Stesso principio per strumenti futuri del tutto diversi (Grafana,
+# Portainer): un gruppo dedicato per lo strumento, non un accesso implicito
+# per chiunque sia "admins" o "users". Qui niente prefisso "ildeposito_":
+# sono strumenti unici a livello di server, non legati a un sito specifico
+# (a differenza di "ildeposito_prod"/"ildeposito_stage", che esistono
+# apposta per non essere ambigui quando ci saranno altri siti):
+#   - domain: 'grafana.ildeposito.org'
+#     subject:
+#       - ['group:admins', 'group:grafana']
+#     policy: 'two_factor'
+#   - domain: 'grafana.ildeposito.org'
+#     subject: 'group:grafana'
+#     policy: 'one_factor'
+
+session:
+  cookies:
+    - domain: 'ildeposito.org'
+      name: 'authelia_session'
+
+storage:
+  local:
+    path: '/storage/db.sqlite3'
+
+notifier:
+  # Notifiche (reset password, registrazione 2FA via email) scritte su file
+  # locale invece che inviate per email. Va bene per iniziare, ma finché non
+  # configuri un notifier smtp reale nessuna email arriva davvero a nessuno.
+  filesystem:
+    filename: '/storage/notification.txt'

@@ -21,3 +21,12 @@
 .env
 .env.*
 !.env.example
+
+# Secrets — mai committare hash password reali degli utenti Authelia
+authelia/users_database.yml
+
+# Secrets — file dei segreti Authelia (jwt/session/storage/oidc/chiave issuer)
+authelia/secrets/
+
+# Secrets — client OIDC reali (Drupal/Grafana/Portainer, quando attivati)
+authelia/oidc.yml

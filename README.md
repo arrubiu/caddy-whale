@@ -2,89 +2,42 @@
 
 Reverse proxy Caddy con label-based routing e protezione CrowdSec.
 
-## ⚠️ TODO: riattivare CrowdSec (modalità globale)
-
-Al momento CrowdSec è **disattivato**: il plugin è compilato nell'immagine
-Caddy (`Dockerfile`), ma non è collegato a nulla (blocco `crowdsec {}` nel
-`Caddyfile` commentato, rete `crowdsec` e variabile `CROWDSEC_BOUNCER_API_KEY`
-commentate in `docker-compose.yml`). Questo per poter avviare Caddy la prima
-volta esattamente come si comportava prima (`docker-compose-old.yml`), senza
-dipendenze da CrowdSec.
-
-L'obiettivo è passare a CrowdSec **a livello di server** (protezione globale
-via Firewall Bouncer sull'host, non solo bouncer HTTP per singolo sito). Step
-da fare, in ordine:
-
-1. **Decidere l'architettura definitiva**: far girare CrowdSec (LAPI) come
-   servizio unico condiviso a livello di server, non legato al ciclo di vita
-   di questo singolo stack Caddy (valutare se spostare
-   `docker-compose.crowdsec.yml` fuori da questa directory o comunque
-   trattarlo come componente "di sistema").
-2. Creare le risorse esterne mancanti se non già presenti:
-   ```bash
-   docker network create crowdsec   # se non già fatto
-   docker volume create caddy_logs  # se non già fatto
-   ```
-3. Avviare CrowdSec e attendere che sia pronto:
-   ```bash
-   docker compose -f docker-compose.crowdsec.yml up -d
-   docker logs -f crowdsec   # aspetta "Starting processing data"
-   ```
-4. Registrare il bouncer HTTP di Caddy e copiare la API key generata:
-   ```bash
-   docker exec crowdsec cscli bouncers add caddy-bouncer
-   ```
-5. Configurare `.env` (copiare da `.env.example` se non esiste) con
-   `CROWDSEC_BOUNCER_API_KEY=<key del passo 4>`.
-6. Ricollegare Caddy a CrowdSec, decommentando:
-   - in `docker-compose.yml`: la riga `- crowdsec` nella sezione `networks:`
-     del servizio `caddy`, il blocco `crowdsec: / external: true` nella
-     sezione `networks:` top-level, e la riga
-     `- CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY}` in `environment:`;
-   - in `Caddyfile`: le righe `order crowdsec first` e l'intero blocco
-     `crowdsec { ... }`.
-7. Rebuild e riavvio di Caddy:
-   ```bash
-   docker compose up -d --build
-   ```
-8. Verificare che il bouncer risulti connesso:
-   ```bash
-   docker exec crowdsec cscli bouncers list   # controlla "last_pull" recente
-   ```
-9. **Modalità globale vera e propria**: installare il Firewall Bouncer
-   sull'host (vedi sezione "Firewall Bouncer sull'host" più sotto) così la
-   protezione copre a livello iptables/nftables tutto il traffico del
-   server, non solo i siti con label Caddy esplicite.
-10. (Opzionale, per sito) Attivare il rilevamento locale via log HTTP solo
-    dove serve, aggiungendo le label `caddy.log.output` / `caddy.log.format`
-    ai docker-compose dei singoli siti (vedi sezione dedicata più sotto).
-
 ## Architettura
+
+CrowdSec è pensato come protezione **globale a livello di server**, non
+legata ai singoli siti: il Firewall Bouncer installato sull'host blocca gli
+IP malevoli a livello iptables/nftables per **tutto** il traffico della
+macchina, prima ancora che raggiunga Docker/Caddy. Non serve alcuna label o
+modifica ai docker-compose dei singoli siti.
 
 ```
 Internet
    │
    ▼
+Firewall Bouncer (host, iptables/nftables) → blocca IP malevoli PRIMA di Docker
+   │
+   ▼
 Caddy :80/:443
-├── caddy-docker-proxy plugin  → routing via Docker label (invariato)
-└── caddy-crowdsec-bouncer     → blocco IP a livello HTTP (per nuovi siti)
+└── caddy-docker-proxy plugin  → routing via Docker label (invariato)
    │
-   ▼ interroga ogni 15s
-CrowdSec LAPI :8080
-├── agent locale → analizza i log di Caddy (quando configurati per sito)
+   ▼ CrowdSec LAPI :8080 (127.0.0.1, non esposta su Internet)
+├── agent locale → riceve le decisioni prese dagli scenari attivi
 └── CAPI         → riceve blocklist dalla community CrowdSec
-   │
-   ▼ (opzionale, installato sull'host)
-Firewall Bouncer → regole iptables/nftables
-                   blocca prima che il traffico raggiunga Caddy
 ```
+
+Il plugin `caddy-crowdsec-bouncer` è compilato nell'immagine Caddy
+([Dockerfile](Dockerfile)) ma **non è collegato a nulla per default**: il
+blocco `crowdsec {}` nel [Caddyfile](Caddyfile) resta commentato e Caddy non
+dipende in alcun modo da CrowdSec per partire o funzionare. È un'estensione
+opzionale per sito, descritta più sotto, non necessaria per la protezione
+globale.
 
 ### Reti Docker
 
 | Rete | Scopo |
 |------|-------|
 | `caddy` | Rete esistente — tutti i servizi proxiati si collegano qui |
-| `crowdsec` | Rete interna Caddy ↔ CrowdSec LAPI |
+| `crowdsec` | Rete interna, usata solo se in futuro si attiva il bouncer HTTP per sito (vedi sezione opzionale) |
 
 ### Volumi
 
@@ -92,195 +45,104 @@ Firewall Bouncer → regole iptables/nftables
 |--------|-----------|
 | `caddy_data` | Certificati TLS, stato Caddy |
 | `caddy_config` | Configurazione Caddy runtime |
-| `caddy_logs` | Log operativi + log di accesso HTTP (se configurati per sito) |
+| `caddy_logs` | Log operativi Caddy (+ log di accesso HTTP solo se in futuro configurati per sito) |
 | `crowdsec_data` | Database decisioni CrowdSec |
 | `crowdsec_config` | Configurazione CrowdSec, parser, scenari |
 
 ---
 
-## Setup iniziale
-
-### 1. Crea reti e volumi
+## Avvio base di Caddy (senza CrowdSec)
 
 ```bash
 docker network create caddy
-docker network create crowdsec
-docker volume create caddy_logs
-```
-
-Il volume `caddy_logs` è dichiarato `external: true` in entrambi i compose
-perché deve esistere prima di avviare qualsiasi servizio.
-
-### 2. Build dell'immagine Caddy custom
-
-```bash
 docker compose build
-```
-
-xcaddy compila il binario Caddy con i plugin:
-- `caddy-docker-proxy` — routing via Docker label
-- `caddy-crowdsec-bouncer` — bouncer HTTP CrowdSec
-
-La build richiede qualche minuto (compila in Go).
-
-### 3. Avvia CrowdSec
-
-```bash
-docker compose -f docker-compose.crowdsec.yml up -d
-```
-
-Al primo avvio CrowdSec scarica la collection `crowdsecurity/caddy`
-(parser + scenari). Attendi che sia pronto:
-
-```bash
-docker logs -f crowdsec
-# Aspetta "Starting processing data"
-```
-
-### 4. Registra il bouncer HTTP di Caddy
-
-```bash
-docker exec crowdsec cscli bouncers add caddy-bouncer
-```
-
-L'output mostra la API key generata. Copiala.
-
-### 5. Configura le variabili d'ambiente
-
-```bash
-cp .env.example .env
-# Imposta CROWDSEC_BOUNCER_API_KEY=<key copiata al passo 4>
-```
-
-### 6. Avvia Caddy
-
-```bash
 docker compose up -d
 ```
 
-### 7. Verifica
-
-```bash
-# Caddy risponde
-curl -I http://localhost
-
-# CrowdSec vede il bouncer connesso
-docker exec crowdsec cscli bouncers list
-
-# Decisioni attive (vuota all'inizio)
-docker exec crowdsec cscli decisions list
-
-# Metriche bouncer
-docker exec crowdsec cscli metrics
-```
+Caddy legge solo le label dei singoli servizi via caddy-docker-proxy, senza
+alcuna dipendenza da CrowdSec.
 
 ---
 
-## Come funziona la protezione
+## Attivazione CrowdSec (protezione globale)
 
-### Protezione immediata — siti esistenti, zero modifiche
+Passi in ordine per attivare la protezione, incluso il collegamento alla
+dashboard remota (CrowdSec Console).
 
-Il bouncer **HTTP di Caddy agisce solo sui siti che hanno la label `crowdsec`
-nella loro route** (vedi sezione successiva). I siti esistenti non vengono
-toccati.
+1. **Crea le risorse Docker esterne** (se non già presenti):
+   ```bash
+   docker network create crowdsec
+   docker volume create caddy_logs
+   ```
 
-Per bloccare IP su tutti i siti senza modificare i compose esistenti,
-usa il **Firewall Bouncer** sull'host (vedi sotto): opera a livello iptables
-prima che il traffico raggiunga Docker.
+2. **Avvia CrowdSec** e attendi che sia pronto:
+   ```bash
+   docker compose -f docker-compose.crowdsec.yml up -d
+   docker logs -f crowdsec   # aspetta "Starting processing data"
+   ```
 
-### Blocklist dalla community (CrowdSec CAPI)
+3. **Iscrivi l'istanza alla blocklist della community** (CAPI) — riceve
+   automaticamente IP noti come scanner/botnet/malevoli:
+   ```bash
+   docker exec crowdsec cscli capi register
+   docker restart crowdsec
+   ```
 
-CrowdSec condivide IP malevoli con la community. Per iscriversi:
+4. **Installa il Firewall Bouncer sull'host** (non in Docker — Ubuntu/Debian):
+   ```bash
+   curl -s https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | sudo bash
+   sudo apt install crowdsec-firewall-bouncer-iptables
+   ```
 
-```bash
-docker exec crowdsec cscli capi register
-docker restart crowdsec
-```
+5. **Registra il bouncer** e copia la API key generata:
+   ```bash
+   docker exec crowdsec cscli bouncers add firewall-bouncer
+   ```
 
-Dopo la registrazione, CrowdSec riceve automaticamente blocklist di IP
-noti come scanner, botnet, ecc. Il firewall bouncer sull'host applica
-queste decisioni a livello di rete.
+6. **Configura il bouncer** sull'host:
+   ```bash
+   sudo nano /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml
+   ```
+   ```yaml
+   api_url: http://127.0.0.1:8080
+   api_key: <key copiata al passo 5>
+   mode: iptables   # o nftables se preferisci
+   ```
 
----
+7. **Abilita e avvia il servizio**:
+   ```bash
+   sudo systemctl enable crowdsec-firewall-bouncer
+   sudo systemctl start crowdsec-firewall-bouncer
+   sudo systemctl status crowdsec-firewall-bouncer
+   ```
 
-## Firewall Bouncer sull'host (raccomandato per protezione globale)
+8. **Verifica che il bouncer risulti connesso**:
+   ```bash
+   docker exec crowdsec cscli bouncers list   # controlla "last_pull" recente
+   docker exec crowdsec cscli metrics
+   ```
 
-Blocca gli IP a livello iptables/nftables **prima** che raggiungano Caddy.
-Non richiede modifiche ai compose dei siti esistenti.
+9. **Collega l'istanza alla dashboard remota (CrowdSec Console)**:
+   1. Crea un account gratuito su [app.crowdsec.net](https://app.crowdsec.net) e genera una **enrollment key** (aggiungendo un nuovo "security engine").
+   2. Esegui l'enroll dal container:
+      ```bash
+      docker exec crowdsec cscli console enroll -e <enrollment-key> --name "caddy-whale"
+      docker restart crowdsec
+      ```
+   3. Torna su [app.crowdsec.net](https://app.crowdsec.net) e **approva/valida** la nuova istanza comparsa in dashboard.
+   4. Da quel momento alert, decisioni e stato della macchina sono visibili e gestibili dalla Console web, oltre che da `cscli`.
 
-La LAPI è esposta su `127.0.0.1:8080` (non raggiungibile dall'esterno).
+10. **Test funzionale** (opzionale ma consigliato):
+    ```bash
+    docker exec crowdsec cscli decisions add --ip 1.2.3.4 --reason "test"
+    docker exec crowdsec cscli decisions list
+    # verifica che l'IP risulti bloccato a livello di rete (iptables -L / nft list ruleset)
+    docker exec crowdsec cscli decisions delete --ip 1.2.3.4
+    ```
 
-### Installazione su Ubuntu/Debian
-
-```bash
-curl -s https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | sudo bash
-sudo apt install crowdsec-firewall-bouncer-iptables
-```
-
-### Registra il bouncer
-
-```bash
-docker exec crowdsec cscli bouncers add firewall-bouncer
-# Copia la key generata
-```
-
-### Configura il bouncer
-
-```bash
-sudo nano /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml
-```
-
-Modifica:
-```yaml
-api_url: http://127.0.0.1:8080
-api_key: <key copiata sopra>
-mode: iptables  # o nftables se preferisci
-```
-
-```bash
-sudo systemctl enable crowdsec-firewall-bouncer
-sudo systemctl start crowdsec-firewall-bouncer
-sudo systemctl status crowdsec-firewall-bouncer
-```
-
----
-
-## Bouncer HTTP Caddy — attivazione per sito (opzionale)
-
-Il bouncer HTTP agisce a livello Caddy e blocca prima che la richiesta
-venga processata. Va abilitato esplicitamente su ogni sito tramite label.
-
-Aggiungere al docker-compose del sito:
-
-```yaml
-labels:
-  # ... label esistenti invariate ...
-  caddy.route.0: crowdsec
-```
-
-Questo aggiunge `crowdsec` come primo handler nella route del sito.
-La configurazione globale (URL LAPI, API key) è già nel `Caddyfile`
-base — il sito si limita a dichiarare di usare il bouncer.
-
----
-
-## Attivare il rilevamento locale via log HTTP
-
-Per default, CrowdSec usa le blocklist della community. Per rilevare
-attacchi localmente (brute force, scan, exploit) dal traffico HTTP,
-CrowdSec deve leggere i log di accesso di Caddy.
-
-Aggiungi queste label al docker-compose di ogni sito che vuoi monitorare:
-
-```yaml
-labels:
-  # ... label esistenti invariate ...
-  caddy.log.output: "file /var/log/caddy/access.log {roll_size 50mb roll_keep 5}"
-  caddy.log.format: json
-```
-
-I log vengono scritti nel volume `caddy_logs`, che CrowdSec legge in
-sola lettura tramite `crowdsec/acquis.yaml`.
+Da qui in avanti la protezione è attiva per **tutto** il traffico verso il
+server, senza alcuna modifica a Caddy, al Caddyfile o ai docker-compose dei
+singoli siti.
 
 ---
 
@@ -315,14 +177,72 @@ docker logs caddy -f
 
 ---
 
-## Aggiornare l'immagine Caddy
+## Estensioni opzionali (non attive per default)
 
-Per aggiornare Caddy o i plugin:
+Le due sezioni seguenti descrivono protezioni **per singolo sito**, alternative/complementari
+al Firewall Bouncer globale. Non sono necessarie per la protezione di base e vanno
+attivate solo se serve un controllo più granulare su un sito specifico.
 
-```bash
-docker compose build --no-cache
-docker compose up -d
+### Bouncer HTTP Caddy per sito
+
+Oltre al Firewall Bouncer globale, è possibile far agire CrowdSec anche a
+livello Caddy, bloccando la richiesta prima ancora che venga processata dal
+sito. Richiede prima di riattivare il blocco `crowdsec {}` nel
+[Caddyfile](Caddyfile) e la rete/variabile in [docker-compose.yml](docker-compose.yml)
+(entrambi oggi commentati con `TODO`).
+
+Sul docker-compose del sito da proteggere:
+
+```yaml
+labels:
+  # ... label esistenti invariate ...
+  caddy.route.0_crowdsec:
 ```
+
+Questo aggiunge `crowdsec` come primo handler nella route del sito. La
+configurazione globale (URL LAPI, API key) resta nel `Caddyfile` base — il
+sito si limita a dichiarare di usare il bouncer.
+
+### Rilevamento locale via log HTTP
+
+Per default CrowdSec usa solo le blocklist della community (CAPI). Per
+rilevare attacchi localmente (brute force, scan, exploit) dal traffico HTTP
+di un sito specifico, CrowdSec deve leggerne i log di accesso — cosa che
+Caddy non produce per nessun sito a meno di non richiederlo esplicitamente.
+
+Aggiungi queste label al docker-compose del sito da monitorare:
+
+```yaml
+labels:
+  # ... label esistenti invariate ...
+  caddy.log.output: "file /var/log/caddy/access.log {roll_size 50mb roll_keep 5}"
+  caddy.log.format: json
+```
+
+I log vengono scritti nel volume `caddy_logs`, che CrowdSec legge in sola
+lettura tramite [crowdsec/acquis.yaml](crowdsec/acquis.yaml).
+
+---
+
+## Note importanti
+
+**Ordine di avvio**: CrowdSec deve essere avviato prima di installare/attivare
+il Firewall Bouncer sull'host. Caddy invece è del tutto indipendente e può
+partire prima, dopo o senza CrowdSec.
+
+**Volume `caddy_logs`**: è `external: true` in entrambi i compose. Deve
+esistere prima di avviare i container (`docker volume create caddy_logs`).
+
+**API key del Firewall Bouncer**: vive solo sull'host, in
+`/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml` — non nel repository.
+È sensibile: chiunque la possieda può interrogare e modificare le decisioni
+della LAPI.
+
+**Enrollment key della Console**: usala una sola volta per il comando
+`cscli console enroll`; non ha bisogno di essere conservata dopo l'uso.
+
+**Porta 8080**: la LAPI è esposta solo su `127.0.0.1:8080` per permettere al
+firewall bouncer sull'host di connettersi senza esporla su Internet.
 
 ---
 
@@ -331,28 +251,29 @@ docker compose up -d
 ```
 caddy/
 ├── Dockerfile                    # Build xcaddy con i plugin
-├── Caddyfile                     # Config globale (crowdsec + log)
+├── Caddyfile                     # Config globale (crowdsec disattivato + log)
 ├── docker-compose.yml            # Caddy
 ├── docker-compose.crowdsec.yml   # CrowdSec LAPI
-├── .env                          # API key (non committare)
+├── docker-compose.authelia.yml   # Authelia (login/SSO, vedi SECURITY-AUTH.md)
+├── authelia.sh                   # start/stop/restart/validate/hash Authelia
+├── .env                          # Variabili (non committare)
 ├── .env.example                  # Template variabili
-└── crowdsec/
-    └── acquis.yaml               # Sorgenti log per CrowdSec
+├── crowdsec/
+│   └── acquis.yaml               # Sorgenti log per CrowdSec
+└── authelia/
+    ├── configuration.yml         # Config base Authelia (versionata, nessun segreto)
+    ├── users_database.yml.example  # Template — copia in users_database.yml (ignorato da git)
+    ├── oidc.yml.example          # Template client OIDC — copia in oidc.yml (ignorato da git)
+    └── secrets/                  # jwt/session/storage/oidc secret su file (ignorato da git)
 ```
 
 ---
 
-## Note importanti
+## Aggiornare l'immagine Caddy
 
-**Ordine di avvio**: CrowdSec deve essere avviato prima di Caddy.
-Se Caddy parte senza LAPI disponibile, continua a servire traffico
-normalmente (nessun blocco) e si riconnette quando CrowdSec è pronto.
+Per aggiornare Caddy o i plugin:
 
-**Volume `caddy_logs`**: è `external: true` in entrambi i compose.
-Deve esistere prima di avviare i container (`docker volume create caddy_logs`).
-
-**API key**: non committare `.env` nel repository. La key è sensibile —
-chiunque la possieda può interrogare e modificare le decisioni della LAPI.
-
-**Port 8080**: la LAPI è esposta solo su `127.0.0.1:8080` per permettere
-al firewall bouncer sull'host di connettersi senza esporla su Internet.
+```bash
+docker compose build --no-cache
+docker compose up -d
+```

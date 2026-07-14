@@ -1,5 +1,7 @@
 {
-    # CrowdSec disattivato per ora: TODO riattivare, vedi README > TODO CrowdSec
+    # CrowdSec disattivato per ora: primo avvio deve funzionare senza dipendenze da CrowdSec.
+    # CrowdSec (LAPI) parte comunque come servizio a sé (docker-compose.crowdsec.yml),
+    # ma non è ancora collegato a Caddy. Per riattivare, vedi README > TODO CrowdSec.
     # order crowdsec first
 
     # Connessione al CrowdSec LAPI — la variabile viene iniettata da docker-compose
@@ -7,7 +9,6 @@
     #     api_url http://crowdsec:8080
     #     api_key {$CROWDSEC_BOUNCER_API_KEY}
     #     ticker_interval 15s
-    #     enable_streaming
     # }
 
     # Log operativi di Caddy in JSON (errori, TLS, admin events)

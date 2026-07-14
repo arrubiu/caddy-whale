@@ -1,0 +1,77 @@
+---
+# Template — copia questo file in users_database.yml (ignorato da git,
+# stesso trattamento di .env) e sostituisci gli hash delle password reali:
+#   cp authelia/users_database.yml.example authelia/users_database.yml
+#
+# Il file si ricarica automaticamente quando cambia (nessun restart di
+# Authelia necessario).
+#
+# Genera l'hash di ogni password con:
+#   ./authelia.sh hash 'la-password-vera'
+# poi sostituisci il valore di "password" qui sotto con l'output. Gli hash
+# qui sotto sono FITTIZI (placeholder, non funzionano) — servono solo a
+# mostrare il formato.
+#
+# I gruppi (qui "admins", "users", "ildeposito_prod", "ildeposito_stage")
+# non vanno dichiarati altrove: nel backend "file" un gruppo esiste
+# semplicemente perché compare nella lista "groups" di un utente — deve
+# solo coincidere con quello usato in access_control (subject: 'group:...')
+# in configuration.yml.
+#
+# --- Isolamento per ambiente (prod/stage) ---
+# Ogni utente porta DUE tipi di gruppo insieme:
+#   1. un gruppo di RUOLO      → admins / users (quanti fattori servono)
+#   2. un gruppo di AMBIENTE   → ildeposito_prod / ildeposito_stage (a
+#                                 quale ambiente può accedere)
+#
+# Il prefisso "ildeposito_" identifica il sito: quando aggiungerai altri
+# siti, ognuno avrà i propri gruppi ambiente (es. "altrosito_prod"), così
+# un utente di un sito non passa mai per errore su un altro solo perché
+# entrambi hanno "un ambiente prod".
+#
+# In configuration.yml l'accesso richiede SEMPRE il gruppo di ambiente
+# giusto, "admins" incluso (AND esplicito) — quindi puoi avere admin
+# DIVERSI per stage e per prod, non un unico admin passe-partout. I 4
+# utenti fittizi sotto coprono le combinazioni possibili:
+
+users:
+  # Admin SOLO produzione — due fattori, ma niente accesso a stage
+  # (password d'esempio: "AdminProd#2025!")
+  mrossi:
+    displayname: "Mario Rossi"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$ESEMPIO_FITTIZIO_NON_VALIDO$AAAA"
+    email: mrossi@ildeposito.org
+    groups:
+      - admins
+      - ildeposito_prod   # NIENTE "ildeposito_stage": non entra su admin-stage/stage.ildeposito.org
+
+  # Admin SOLO stage — due fattori, ma niente accesso a produzione
+  # (password d'esempio: "AdminStage#2025!")
+  gbianchi:
+    displayname: "Giulia Bianchi"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$ESEMPIO_FITTIZIO_NON_VALIDO$BBBB"
+    email: gbianchi@ildeposito.org
+    groups:
+      - admins
+      - ildeposito_stage   # NIENTE "ildeposito_prod": non entra su admin.ildeposito.org
+
+  # Redattore su entrambi gli ambienti — un fattore solo (non è admin)
+  # (password d'esempio: "Redattore#2025!")
+  lverdi:
+    displayname: "Luca Verdi"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$ESEMPIO_FITTIZIO_NON_VALIDO$CCCC"
+    email: lverdi@ildeposito.org
+    groups:
+      - users
+      - ildeposito_prod
+      - ildeposito_stage
+
+  # Collaboratrice esterna, solo stage — non tocca mai la produzione,
+  # nemmeno conoscendo la password (password d'esempio: "Collab#2025!")
+  fneri:
+    displayname: "Francesca Neri"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$ESEMPIO_FITTIZIO_NON_VALIDO$DDDD"
+    email: fneri@example.com
+    groups:
+      - users
+      - ildeposito_stage
