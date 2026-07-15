@@ -10,4 +10,4 @@ FROM caddy:2.11.4-alpine
 
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 
-CMD ["docker-proxy"]
+CMD ["caddy", "docker-proxy"]
