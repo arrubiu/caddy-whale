@@ -22,7 +22,7 @@ services:
     networks:
       - caddy
     labels:
-      caddy: auth.example.com
+      caddy: auth.ildeposito.org
       caddy.reverse_proxy: "{{upstreams 9091}}"
 
 volumes:

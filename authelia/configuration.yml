@@ -102,11 +102,8 @@ access_control:
       policy: 'one_factor'
 
     # Frontend stage (non pubblico: tutto l'ambiente stage resta dietro
-    # login) — stesso vincolo del backend stage
-    - domain: 'stage.ildeposito.org'
-      subject:
-        - ['group:admins', 'group:ildeposito_stage']
-      policy: 'two_factor'
+    # login) — sola password, nessun secondo fattore (scelta esplicita:
+    # niente 2FA nemmeno per gli admin su questo dominio)
     - domain: 'stage.ildeposito.org'
       subject: 'group:ildeposito_stage'
       policy: 'one_factor'
