@@ -107,7 +107,7 @@ dashboard remota (CrowdSec Console).
    1. Crea un account gratuito su [app.crowdsec.net](https://app.crowdsec.net) e genera una **enrollment key** (aggiungendo un nuovo "security engine").
    2. Esegui l'enroll dal container:
       ```bash
-      docker exec crowdsec cscli console enroll -e <enrollment-key> --name "caddy-whale"
+      docker exec crowdsec cscli console enroll --name "caddy-whale" <enrollment-key>
       docker restart crowdsec
       ```
    3. Torna su [app.crowdsec.net](https://app.crowdsec.net) e **approva/valida** la nuova istanza comparsa in dashboard.
