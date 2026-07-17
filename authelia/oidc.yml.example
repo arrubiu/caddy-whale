@@ -1,0 +1,131 @@
+# Template — copia questo file in authelia/oidc.yml (ignorato da git, stesso
+# trattamento di users_database.yml) e sostituisci i valori fittizi:
+#   cp authelia/oidc.yml.example authelia/oidc.yml
+#
+# Poi, in authelia/docker-compose.yml, scommenta il mount di oidc.yml e la
+# variabile X_AUTHELIA_CONFIG (vedi commento lì) e riavvia:
+#   ./script.sh authelia validate
+#   ./script.sh authelia restart
+#
+# ATTIVA Authelia come OpenID Connect Provider — SI AGGIUNGE a forward_auth,
+# non lo sostituisce: un sito può restare protetto con forward_auth (vedi
+# README.md) oppure diventare un client OIDC qui sotto, a scelta caso per
+# caso. Le due cose non si combinano sullo stesso sito.
+#
+# UN SOLO FILE per identity_providers.oidc, per lo stesso motivo per cui
+# access_control.rules sta tutta in configuration.yml (vedi commento lì):
+# "clients" è una lista e le liste non si uniscono tra più file di config,
+# l'ultimo caricato sovrascrive. Ogni nuova app va aggiunta alla lista
+# "clients" più sotto, non in un file separato.
+
+identity_providers:
+  oidc:
+    # hmac_secret NON va qui: iniettato da
+    # AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE (vedi
+    # docker-compose.yml), generato da `./script.sh authelia gen-secrets`
+    # in authelia/secrets/oidc_hmac_secret — è uno scalare, supporta il
+    # pattern secret/_FILE.
+
+    jwks:
+      - key_id: 'ildeposito-1'
+        algorithm: 'RS256'
+        use: 'sig'
+        # 'key' invece NON supporta secret/_FILE: jwks è una LISTA e
+        # Authelia non applica il pattern _FILE dentro le liste (limite
+        # documentato, non una svista). Va incollato qui a mano il
+        # contenuto PEM generato da `./script.sh authelia gen-secrets` in
+        # authelia/secrets/oidc_issuer_private_key.pem — va bene comunque,
+        # questo file (oidc.yml) è ignorato da git esattamente come
+        # users_database.yml.
+        key: |
+          -----BEGIN PRIVATE KEY-----
+          ESEMPIO_FITTIZIO_NON_VALIDO_SOSTITUISCI_CON_IL_CONTENUTO_DI
+          authelia/secrets/oidc_issuer_private_key.pem
+          -----END PRIVATE KEY-----
+
+    # Policy di autorizzazione custom, riusabili da più client — stesso
+    # concetto di access_control.rules ma per i client OIDC: filtra PER
+    # GRUPPO (definito in users_database.yml), non per username, così il
+    # vero account non finisce mai in un file versionato. Una policy per
+    # AMBIENTE (stage/prod), stesso schema usato in access_control e nei
+    # gruppi di users_database.yml.example — quando arriva un terzo
+    # ambiente/sito basta aggiungere una nuova policy qui, non toccare le
+    # esistenti.
+    authorization_policies:
+      ildeposito_stage:
+        default_policy: 'deny'
+        rules:
+          - policy: 'one_factor'
+            subject: 'group:ildeposito_stage'
+
+      # Per quando admin.ildeposito.org (prod) sarà collegato: due fattori,
+      # e AND esplicito su admins+ildeposito_prod (sintassi lista-di-liste:
+      # primo livello = OR, secondo livello = AND) — stessa logica "admin
+      # diversi per stage e per prod" descritta in users_database.yml.example.
+      ildeposito_prod_admins:
+        default_policy: 'deny'
+        rules:
+          - policy: 'two_factor'
+            subject:
+              - ['group:admins', 'group:ildeposito_prod']
+
+    # Un client per SITO/AMBIENTE, non uno generico per "ildeposito" — così
+    # stage e prod restano isolati anche lato OIDC (client_id/secret diversi,
+    # policy diverse), come già fa access_control per forward_auth. Questo è
+    # ADDITIVO rispetto a forward_auth, non lo sostituisce: admin-stage./
+    # admin.ildeposito.org restano comunque dietro il gate di rete in
+    # configuration.yml — l'OIDC qui sotto è quello che Drupal usa per il
+    # SUO login (modulo openid_connect), per avere utenti/ruoli Drupal reali
+    # invece di fidarsi solo degli header Remote-User (vedi nota nel README
+    # sui rischi di quell'approccio).
+    clients:
+      # --- admin-stage.ildeposito.org — Drupal, ambiente stage (attivo) ---
+      - client_id: 'drupal-ildeposito-stage'
+        client_name: 'Drupal ilDeposito (stage)'
+        # Hash pbkdf2-sha512 del client secret reale, MAI il secret in
+        # chiaro — generalo con:
+        #   ./script.sh authelia hash-oidc 'il-client-secret-vero'
+        # e incolla il secret IN CHIARO (non l'hash) nella config del modulo
+        # openid_connect di Drupal. Quello sotto è solo un placeholder nel
+        # FORMATO giusto (serve per far passare `authelia config validate`
+        # su questo file) — non è un secret vero, va rigenerato.
+        client_secret: '$pbkdf2-sha512$310000$ia4sjWxnmmvyI5wufhyALw$U1hev8M0I.mqWLSB2KlWM7vvLBC3Bl.ekxJqd3VTPctTM9A/z7bPTNebhI/9dmIyoonZL7VB1uCuMTC1oPO37Q'
+        public: false
+        authorization_policy: 'ildeposito_stage'
+        redirect_uris:
+          - 'https://admin-stage.ildeposito.org/openid-connect/generic'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'groups'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        userinfo_signed_response_alg: 'none'
+
+      # --- admin.ildeposito.org — Drupal, ambiente prod (FUTURO: scommenta
+      # quando il sito prod è pronto, con un client_secret proprio, diverso
+      # da quello di stage) ---
+      # - client_id: 'drupal-ildeposito-prod'
+      #   client_name: 'Drupal ilDeposito (prod)'
+      #   client_secret: '$pbkdf2-sha512$...'
+      #   public: false
+      #   authorization_policy: 'ildeposito_prod_admins'
+      #   redirect_uris:
+      #     - 'https://admin.ildeposito.org/openid-connect/generic'
+      #   scopes:
+      #     - 'openid'
+      #     - 'profile'
+      #     - 'email'
+      #     - 'groups'
+      #   grant_types:
+      #     - 'authorization_code'
+      #   response_types:
+      #     - 'code'
+      #   userinfo_signed_response_alg: 'none'
+
+      # Altri siti/app in futuro: aggiungi qui un nuovo blocco client (e,
+      # se serve una policy diversa da quelle sopra, una nuova voce in
+      # authorization_policies) — non toccare i client esistenti.

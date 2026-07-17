@@ -59,13 +59,23 @@ authelia_cmd() {
     gen-secrets)
       mkdir -p authelia/secrets
       local created=0
-      for f in jwt_secret session_secret storage_encryption_key; do
+      for f in jwt_secret session_secret storage_encryption_key oidc_hmac_secret; do
         if [ ! -f "authelia/secrets/$f" ]; then
           openssl rand -hex 32 > "authelia/secrets/$f"
           echo "Generato authelia/secrets/$f"
           created=1
         fi
       done
+      # Chiave RSA dell'issuer OIDC: a parte perché identity_providers.oidc.jwks
+      # è una lista — Authelia non supporta il pattern secret/_FILE sulle liste,
+      # quindi questa non viene iniettata via env var come le altre: va incollata
+      # a mano nel campo "key" di authelia/oidc.yml (vedi oidc.yml.example).
+      if [ ! -f "authelia/secrets/oidc_issuer_private_key.pem" ]; then
+        openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 \
+          -out "authelia/secrets/oidc_issuer_private_key.pem"
+        echo "Generato authelia/secrets/oidc_issuer_private_key.pem"
+        created=1
+      fi
       [ "$created" -eq 0 ] && echo "Esistono già tutti, nulla da generare."
       ;;
     hash)

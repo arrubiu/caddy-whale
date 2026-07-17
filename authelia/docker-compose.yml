@@ -9,15 +9,21 @@ services:
       - AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE=/secrets/jwt_secret
       - AUTHELIA_SESSION_SECRET_FILE=/secrets/session_secret
       - AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE=/secrets/storage_encryption_key
+      # Per attivare identity_providers.oidc (vedi oidc.yml.example): dopo
+      # aver creato authelia/oidc.yml e generato i secret mancanti con
+      # `./script.sh authelia gen-secrets`, scommenta questa riga insieme
+      # alle due sotto in "volumes". La chiave RSA dell'issuer (jwks[].key)
+      # NON passa da qui: è una lista, va incollata a mano dentro oidc.yml
+      # (spiegato nel file stesso).
+      # - AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE=/secrets/oidc_hmac_secret
     volumes:
       - ./configuration.yml:/config/configuration.yml:ro
       - ./users_database.yml:/config/users_database.yml:ro
       - ./secrets:/secrets:ro
       - authelia_storage:/storage
-      # Quando attivi identity_providers.oidc (Drupal/Grafana/Portainer),
-      # crea authelia/oidc.yml (vedi oidc.yml.example) e aggiungi qui:
       # - ./oidc.yml:/config/oidc.yml:ro
-      # più, sopra, la variabile:
+      # più, sopra tra "environment", la var che dice ad Authelia di
+      # caricare PIÙ file di config (di default ne carica uno solo):
       # - X_AUTHELIA_CONFIG=/config/configuration.yml,/config/oidc.yml
     networks:
       - caddy

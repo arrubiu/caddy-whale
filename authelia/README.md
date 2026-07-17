@@ -1,15 +1,24 @@
 # Authelia
 
 Login/SSO condiviso per proteggere singoli siti con
-[Authelia](https://www.authelia.com/) tramite `forward_auth` di Caddy —
-**niente OIDC**: un solo login su Authelia, niente client/secret/redirect_uri
-per app, niente restart di Authelia quando aggiungi un nuovo sito (solo
-quando cambi utenti/policy in modo strutturale).
+[Authelia](https://www.authelia.com/) tramite `forward_auth` di Caddy — un
+solo login su Authelia, niente restart di Authelia quando aggiungi un nuovo
+sito protetto così (solo quando cambi utenti/policy in modo strutturale).
+
+**OIDC è disponibile come opzione aggiuntiva**, non l'approccio di default:
+resta pensato per il caso in cui un'app abbia un proprio modulo di login OIDC
+(es. Drupal con `openid_connect`) e quindi benefici di utenti/ruoli reali
+lato app invece di fidarsi solo degli header `Remote-*` di forward_auth —
+vedi [Aggiungere un client OIDC per un'app](#aggiungere-un-client-oidc-per-unapp)
+più sotto. Le due cose sono complementari, non alternative: un sito può
+restare gateato in rete da forward_auth *e* offrire login OIDC per un vero
+account applicativo.
 
 > Nota: il plugin `caddy-security` resta compilato nell'immagine Caddy (vedi
 > [caddy/Dockerfile](../caddy/Dockerfile)) ma non è la strada scelta —
 > richiedeva OIDC/local identity store con reload non garantito. Questo
-> documento descrive la soluzione effettivamente in uso: Authelia.
+> documento descrive la soluzione effettivamente in uso: Authelia (con
+> Authelia stesso come provider OIDC, quando serve — non caddy-security).
 
 ## Setup
 
@@ -202,6 +211,62 @@ collisione reale con un `/api*` del sito stesso, anche se il nome coincide.
 
 ---
 
+## Aggiungere un client OIDC per un'app
+
+Da fare solo se l'app ha un proprio modulo/plugin che parla OIDC nativamente
+(es. Drupal `openid_connect`, Grafana `generic_oauth`) — se l'app non ce l'ha,
+resta sul solo forward_auth (sezioni sopra), niente OIDC.
+
+**Prima volta** (attiva `identity_providers.oidc`, non ancora attivo di
+default):
+```bash
+cp authelia/oidc.yml.example authelia/oidc.yml
+./script.sh authelia gen-secrets   # crea anche oidc_hmac_secret e oidc_issuer_private_key.pem
+```
+Poi, a mano:
+1. In `authelia/oidc.yml`, incolla il contenuto di
+   `authelia/secrets/oidc_issuer_private_key.pem` nel campo `jwks[0].key`
+   (non passa da env var: `jwks` è una lista, Authelia non applica il
+   pattern secret/`_FILE` dentro le liste — dettaglio spiegato nel file
+   stesso).
+2. In `authelia/docker-compose.yml`, scommenta le tre righe indicate nei
+   commenti (`AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE`, il mount di
+   `oidc.yml`, `X_AUTHELIA_CONFIG`).
+
+**Per ogni nuovo client** (un blocco per sito/ambiente, mai uno condiviso —
+vedi commenti in `oidc.yml.example` per l'esempio completo Drupal
+stage/prod):
+```bash
+./script.sh authelia hash-oidc 'un-client-secret-scelto-a-caso'
+```
+L'hash (`$pbkdf2-sha512$...`) va nel campo `client_secret` del client in
+`authelia/oidc.yml`; il secret **in chiaro** (quello passato al comando, non
+l'hash) va invece nella configurazione OIDC lato app (es. il modulo
+`openid_connect` di Drupal) — Authelia conosce solo l'hash, come già fa per
+le password in `users_database.yml`.
+
+Poi sempre:
+```bash
+./script.sh authelia validate
+./script.sh authelia restart
+```
+
+Punti da tenere a mente:
+- `redirect_uris` deve combaciare **esattamente** (path incluso) con quello
+  che l'app invia — per Drupal `openid_connect` generico è tipicamente
+  `https://<dominio-app>/openid-connect/generic`.
+- `authorization_policy` di un client punta a una voce di
+  `identity_providers.oidc.authorization_policies` (stesso concetto delle
+  regole in `access_control`, ma per i client OIDC) — non a `one_factor`/
+  `two_factor` direttamente se vuoi anche filtrare per gruppo.
+- Se il sito è anche dietro `forward_auth` (vedi sezioni sopra), le due cose
+  non confliggono: il gate di rete resta forward_auth, l'OIDC è solo il modo
+  in cui l'app stessa autentica l'utente al suo interno — un utente già
+  loggato su Authelia per passare il gate non deve ripetere il login anche
+  nel flusso OIDC (stessa sessione/cookie).
+
+---
+
 ## Un modulo custom lato app che si fida degli header: è sicuro?
 
 Può esserlo, con tre condizioni, tutte necessarie insieme:
@@ -262,9 +327,10 @@ meccanismo di autenticazione si usi.
 ```
 authelia/
 ├── docker-compose.yml
-├── configuration.yml            # Config base (versionata, nessun segreto)
+├── configuration.yml            # Config base (versionata, nessun segreto) — server/log/utenti/access_control/session
+├── oidc.yml.example             # Template — copia in oidc.yml (ignorato da git) SOLO se attivi identity_providers.oidc
 ├── users_database.yml.example   # Template — copia in users_database.yml (ignorato da git)
-├── secrets/                     # jwt/session/storage/oidc secret su file (ignorato da git)
+├── secrets/                     # jwt/session/storage/oidc_hmac/oidc_issuer_key su file (ignorato da git)
 ├── .env.example
 └── README.md
 ```
