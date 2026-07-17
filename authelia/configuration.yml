@@ -90,8 +90,10 @@ access_control:
 session:
   cookies:
     - domain: 'ildeposito.org'
+      authelia_url: 'https://auth.ildeposito.org'
       name: 'authelia_session'
     - domain: 'whalestudio.dev'
+      authelia_url: 'https://auth.whalestudio.dev'
       name: 'authelia_session'
 
 storage:
