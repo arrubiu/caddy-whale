@@ -53,8 +53,13 @@ authelia_cmd() {
   local cmd="${1:-}"; shift || true
   case "$cmd" in
     validate)
+      # Include oidc.yml solo se esiste (attivazione OIDC opzionale) — deve
+      # combaciare con X_AUTHELIA_CONFIG in docker-compose.yml, altrimenti
+      # `validate` valida un config diverso da quello che poi gira davvero.
+      local config_files="/config/configuration.yml"
+      [ -f authelia/oidc.yml ] && config_files="$config_files,/config/oidc.yml"
       "${COMPOSE[@]}" run --rm --no-deps authelia \
-        authelia config validate --config /config/configuration.yml
+        authelia config validate --config "$config_files"
       ;;
     gen-secrets)
       mkdir -p authelia/secrets
