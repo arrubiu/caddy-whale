@@ -265,6 +265,29 @@ Punti da tenere a mente:
   loggato su Authelia per passare il gate non deve ripetere il login anche
   nel flusso OIDC (stessa sessione/cookie).
 
+### Logout completo (anche lato Authelia)
+
+La stessa sessione condivisa che evita il doppio login **rompe il logout**
+se non gestita: il logout nativo dell'app (es. Drupal) chiude solo la
+sessione dell'app, non il cookie `authelia_session`. Se l'app ha
+un'opzione di "redirect automatico al provider quando non c'è sessione
+locale" (comune nel modulo `openid_connect`), al giro successivo l'utente
+viene rimandato silenziosamente su Authelia, che lo autorizza di nuovo
+senza chiedere nulla perché la sua sessione è ancora valida — sembra che
+il logout non abbia avuto effetto.
+
+Per un logout che chiuda anche Authelia (e quindi anche il gate
+`forward_auth` sullo stesso dominio/sottodominio), la destinazione finale
+del logout dell'app deve puntare a:
+```
+https://auth.<dominio>/logout?rd=<url-di-ritorno>
+```
+Per Drupal: nel modulo `openid_connect` (o con un redirect custom sulla
+route di logout) va impostato questo URL come destinazione post-logout,
+non l'homepage del sito. Solo così il cookie di Authelia viene invalidato
+e il prossimo accesso richiede un login completo (sia per `forward_auth`
+sia per il rientro OIDC in Drupal).
+
 ---
 
 ## Un modulo custom lato app che si fida degli header: è sicuro?

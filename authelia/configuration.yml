@@ -111,8 +111,17 @@ storage:
     path: '/storage/db.sqlite3'
 
 notifier:
-  # Notifiche (reset password, registrazione 2FA via email) scritte su file
-  # locale invece che inviate per email. Va bene per iniziare, ma finché non
-  # configuri un notifier smtp reale nessuna email arriva davvero a nessuno.
+  # SMTP reale: repo pubblico, quindi host/mittente/credenziali NON stanno
+  # qui né vanno mai committati. Arrivano da authelia/.env (vedi
+  # authelia/.env.example) come variabili AUTHELIA_NOTIFIER_SMTP_*
+  # iniettate nel container da docker-compose.yml — Authelia le legge anche
+  # senza una chiave "smtp:" esplicita in questo file. Quando authelia/.env
+  # è compilato: scommenta quelle righe in docker-compose.yml e commenta il
+  # blocco "filesystem" qui sotto (Authelia rifiuta la config se sono
+  # attivi entrambi i notifier contemporaneamente).
+  #
+  # Notifier di fallback finché l'SMTP non è configurato: notifiche (reset
+  # password, registrazione 2FA) scritte su file locale invece che inviate
+  # per email — nessuna email arriva davvero finché non passi a smtp sopra.
   filesystem:
     filename: '/storage/notification.txt'
