@@ -45,7 +45,10 @@ users:
       - admins
       - ildeposito_prod   # NIENTE "ildeposito_stage": non entra su admin-stage/stage.ildeposito.org
 
-  # Admin SOLO stage — due fattori, ma niente accesso a produzione
+  # Admin SOLO stage — niente accesso a produzione. Il gruppo "admins" qui
+  # scatta per due fattori SOLO su admin-stage.ildeposito.org (vedi
+  # access_control in configuration.yml, subject AND admins+ildeposito_stage);
+  # su stage.ildeposito.org resta un fattore solo come per tutti.
   # (password d'esempio: "AdminStage#2025!")
   gbianchi:
     displayname: "Giulia Bianchi"

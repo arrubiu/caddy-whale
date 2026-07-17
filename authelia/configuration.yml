@@ -75,14 +75,24 @@ access_control:
     # --- stage.ildeposito.org ---
     # Frontend stage (non pubblico: tutto l'ambiente stage resta dietro
     # login) — sola password, nessun secondo fattore (scelta esplicita:
-    # niente 2FA nemmeno per gli admin su questo dominio)
+    # niente 2FA nemmeno per gli admin su questo dominio, il backend
+    # admin-stage sotto invece lo richiede).
     - domain: 'stage.ildeposito.org'
       subject: 'group:ildeposito_stage'
       policy: 'one_factor'
 
     # --- admin-stage.ildeposito.org ---
-    # Backend Drupal stage — stessa policy del frontend stage sopra:
-    # one_factor per chiunque abbia il gruppo ildeposito_stage.
+    # Backend Drupal stage. Chi è SIA admins CHE ildeposito_stage deve
+    # passare per due fattori (AND esplicito, sintassi lista-di-liste:
+    # primo livello = OR, secondo livello = AND — stessa convenzione già
+    # usata in oidc.yml.example per ildeposito_prod_admins); gli altri
+    # membri di ildeposito_stage restano a un fattore solo. Regola più
+    # specifica PRIMA di quella generale: Authelia valuta le regole in
+    # ordine e si ferma alla prima che fa match.
+    - domain: 'admin-stage.ildeposito.org'
+      subject:
+        - ['group:admins', 'group:ildeposito_stage']
+      policy: 'two_factor'
     - domain: 'admin-stage.ildeposito.org'
       subject: 'group:ildeposito_stage'
       policy: 'one_factor'
