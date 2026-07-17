@@ -15,16 +15,16 @@ services:
       # alle due sotto in "volumes". La chiave RSA dell'issuer (jwks[].key)
       # NON passa da qui: è una lista, va incollata a mano dentro oidc.yml
       # (spiegato nel file stesso).
-      # - AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE=/secrets/oidc_hmac_secret
+      - AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE=/secrets/oidc_hmac_secret
+      # var che dice ad Authelia di caricare PIÙ file di config (di default
+      # ne carica uno solo):
+      - X_AUTHELIA_CONFIG=/config/configuration.yml,/config/oidc.yml
     volumes:
       - ./configuration.yml:/config/configuration.yml:ro
       - ./users_database.yml:/config/users_database.yml:ro
       - ./secrets:/secrets:ro
       - authelia_storage:/storage
-      # - ./oidc.yml:/config/oidc.yml:ro
-      # più, sopra tra "environment", la var che dice ad Authelia di
-      # caricare PIÙ file di config (di default ne carica uno solo):
-      # - X_AUTHELIA_CONFIG=/config/configuration.yml,/config/oidc.yml
+      - ./oidc.yml:/config/oidc.yml:ro
     networks:
       - caddy
     labels:
