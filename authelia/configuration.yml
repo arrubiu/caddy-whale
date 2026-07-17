@@ -120,8 +120,8 @@ notifier:
   # blocco "filesystem" qui sotto (Authelia rifiuta la config se sono
   # attivi entrambi i notifier contemporaneamente).
   #
-  # Notifier di fallback finché l'SMTP non è configurato: notifiche (reset
-  # password, registrazione 2FA) scritte su file locale invece che inviate
-  # per email — nessuna email arriva davvero finché non passi a smtp sopra.
-  filesystem:
-    filename: '/storage/notification.txt'
+  # Notifier di fallback, disattivato ora che l'SMTP reale è configurato in
+  # .env (non può stare attivo insieme a smtp): notifiche scritte su file
+  # locale invece che inviate per email.
+  # filesystem:
+  #   filename: '/storage/notification.txt'
