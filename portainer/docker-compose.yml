@@ -10,9 +10,21 @@ services:
     networks:
       - caddy
     labels:
-      # Nessuna autenticazione Authelia per ora (vedi README > TODO Authelia).
+      # Gate di rete via forward_auth (accesso two_factor, gruppi
+      # admins+portainer — vedi access_control in authelia/configuration.yml)
+      # PIÙ login OIDC nativo dentro Portainer stesso (vedi authelia/oidc.yml,
+      # client "portainer"): due livelli distinti, non ridondanti — il primo
+      # impedisce di raggiungere anche solo la pagina di login di Portainer
+      # senza essere già autenticati su Authelia, il secondo autentica poi
+      # l'utente applicativo dentro Portainer via "Login with OAuth".
       caddy: portainer.whalestudio.dev
-      caddy.reverse_proxy: "{{upstreams 9000}}"
+      caddy.route.0_request_header: "-Remote-User"
+      caddy.route.1_request_header: "-Remote-Groups"
+      caddy.route.2_request_header: "-Remote-Email"
+      caddy.route.3_forward_auth: authelia:9091
+      caddy.route.3_forward_auth.uri: /api/authz/forward-auth
+      caddy.route.3_forward_auth.copy_headers: Remote-User Remote-Groups Remote-Email
+      caddy.route.4_reverse_proxy: "{{upstreams 9000}}"
 
 volumes:
   portainer_data:

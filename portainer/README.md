@@ -7,13 +7,21 @@ stesso meccanismo usato dagli altri servizi dello stack.
 
 ## Accesso
 
-L'istanza risponde su `https://portainer.whalestudio.dev`.
+L'istanza risponde su `https://portainer.whalestudio.dev`, protetta da
+**due livelli distinti** (non ridondanti, vedi commento sulle label in
+[docker-compose.yml](docker-compose.yml)):
 
-> **Per ora nessuna autenticazione dedicata**: il sito non è protetto da
-> Authelia (nessuna label `forward_auth`, nessuna `access_control` in
-> [authelia/configuration.yml](../authelia/configuration.yml)). L'unica
-> protezione è quella nativa di Portainer (creazione dell'utente admin al
-> primo avvio). Da configurare al primo accesso — vedi TODO Authelia sotto.
+1. **Gate di rete** — `forward_auth` verso Authelia (label su questo
+   `docker-compose.yml` + regola `access_control` in
+   [authelia/configuration.yml](../authelia/configuration.yml)): serve
+   two_factor e i gruppi `admins` **e** `portainer` insieme (AND esplicito)
+   solo per raggiungere Portainer, login incluso.
+2. **Login applicativo OIDC** — una volta dentro, il pulsante "Login with
+   OAuth" di Portainer autentica l'utente reale via il client `portainer` in
+   [authelia/oidc.yml](../authelia/oidc.yml) (stessa policy
+   `admins`+`portainer`, two_factor). Auto-provisioning utenti disattivato in
+   Portainer: un nuovo utente va comunque creato a mano in **Settings →
+   Users** prima che possa entrare via SSO.
 
 ## Reti e volumi
 
@@ -54,18 +62,19 @@ un riavvio del container per sbloccare la creazione.
 
 Nessun comando specifico oltre a quelli Docker comuni, per ora.
 
-## TODO Authelia
+## Note sull'autenticazione
 
-Quando si deciderà di agganciare Portainer al login centralizzato, le
-opzioni sono le stesse già documentate per gli altri siti in
-[authelia/README.md](../authelia/README.md):
-
-- `forward_auth` classico (label su questo `docker-compose.yml` + regola in
-  `access_control`), oppure
-- client OIDC dedicato in `authelia/oidc.yml` (Portainer supporta login
-  OAuth/OIDC nativamente in CE) — il `.gitignore` della root prevede già
-  questo caso ("client OIDC reali (Drupal/Grafana/Portainer, quando
-  attivati)").
+- Chi deve accedere a Portainer serve **entrambi** i gruppi in
+  `authelia/users_database.yml`: `admins` **e** `portainer` — avere solo
+  `admins` (es. un admin di un altro sito) non basta né per il gate di rete
+  né per la policy OIDC.
+- Il logout da Portainer non chiude la sessione Authelia da solo: il campo
+  "Logout URL" nelle impostazioni OAuth di Portainer va puntato a
+  `https://auth.whalestudio.dev/logout?rd=https://portainer.whalestudio.dev`,
+  altrimenti il prossimo giro l'SSO riloga silenziosamente.
+- L'account admin locale di Portainer (creato al primo avvio) va tenuto come
+  *break-glass* in caso Authelia sia irraggiungibile — non disattivare
+  l'autenticazione interna di Portainer.
 
 ## Struttura file
 

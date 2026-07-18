@@ -97,6 +97,19 @@ access_control:
       subject: 'group:ildeposito_stage'
       policy: 'one_factor'
 
+    # --- portainer.whalestudio.dev ---
+    # Gate di rete davanti a Portainer (accesso Docker = root-equivalente):
+    # due fattori, e AND esplicito su admins+portainer (stessa sintassi
+    # lista-di-liste di admin-stage.ildeposito.org sopra) così un admin
+    # "generico" di un altro sito non entra qui solo perché è nel gruppo
+    # admins — deve avere anche il gruppo portainer. Vedi anche
+    # authorization_policies.portainer_admins in oidc.yml: stessa policy,
+    # riapplicata dentro Portainer per il login OIDC "Login with OAuth".
+    - domain: 'portainer.whalestudio.dev'
+      subject:
+        - ['group:admins', 'group:portainer']
+      policy: 'two_factor'
+
 session:
   cookies:
     - domain: 'ildeposito.org'
