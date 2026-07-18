@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-SERVICES=(authelia caddy crowdsec)
+SERVICES=(authelia caddy crowdsec portainer)
 AUTHELIA_IMAGE="authelia/authelia:4.39.20"
 
 usage() {
@@ -13,7 +13,7 @@ usage() {
 Uso: ./script.sh <servizio> <comando> [argomenti]
 
 Servizi disponibili:
-  authelia    caddy    crowdsec
+  authelia    caddy    crowdsec    portainer
 
 Comandi Docker comuni (validi per ogni servizio):
   up          Avvia il servizio (docker compose up -d)
@@ -46,6 +46,7 @@ Esempi:
   ./script.sh caddy up
   ./script.sh authelia logs
   ./script.sh crowdsec ban 1.2.3.4 "scan"
+  ./script.sh portainer up
 EOF
 }
 
@@ -154,7 +155,7 @@ fi
 SERVICE="$1"; shift
 
 case "$SERVICE" in
-  authelia|caddy|crowdsec) ;;
+  authelia|caddy|crowdsec|portainer) ;;
   *)
     echo "Servizio sconosciuto: $SERVICE"
     echo
@@ -184,9 +185,15 @@ case "$COMMAND" in
   shell)   "${COMPOSE[@]}" exec "$SERVICE" sh ;;
   *)
     case "$SERVICE" in
-      authelia) authelia_cmd "$COMMAND" "$@" ;;
-      caddy)    caddy_cmd "$COMMAND" "$@" ;;
-      crowdsec) crowdsec_cmd "$COMMAND" "$@" ;;
+      authelia)  authelia_cmd "$COMMAND" "$@" ;;
+      caddy)     caddy_cmd "$COMMAND" "$@" ;;
+      crowdsec)  crowdsec_cmd "$COMMAND" "$@" ;;
+      portainer)
+        echo "Comando sconosciuto per portainer: $COMMAND (nessun comando specifico per ora)"
+        echo
+        usage
+        exit 1
+        ;;
     esac
     ;;
 esac

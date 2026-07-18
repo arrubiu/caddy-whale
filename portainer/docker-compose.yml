@@ -1,0 +1,22 @@
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    command: -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - caddy
+    labels:
+      # Nessuna autenticazione Authelia per ora (vedi README > TODO Authelia).
+      caddy: portainer.whalestudio.dev
+      caddy.reverse_proxy: "{{upstreams 9000}}"
+
+volumes:
+  portainer_data:
+
+networks:
+  caddy:
+    external: true

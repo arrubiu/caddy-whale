@@ -13,7 +13,8 @@ caddy-whale/
 ├── .env.example
 ├── caddy/             # Reverse proxy: build immagine, Caddyfile, rate limit
 ├── crowdsec/          # Protezione globale IP (Firewall Bouncer + LAPI)
-└── authelia/          # Login/SSO per singoli siti via forward_auth
+├── authelia/          # Login/SSO per singoli siti via forward_auth
+└── portainer/         # UI di gestione Docker (Portainer CE)
 ```
 
 Ogni sottocartella è un servizio Docker Compose a sé stante, con il proprio
@@ -25,6 +26,8 @@ Ogni sottocartella è un servizio Docker Compose a sé stante, con il proprio
   protezione globale (Firewall Bouncer + LAPI + Console).
 - **[authelia/README.md](authelia/README.md)** — login/SSO condiviso,
   `access_control`, protezione di un sito con `forward_auth`.
+- **[portainer/README.md](portainer/README.md)** — UI di gestione Docker,
+  per ora senza autenticazione dedicata.
 
 ## Gestione dei servizi
 
