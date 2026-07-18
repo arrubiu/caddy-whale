@@ -97,6 +97,20 @@ access_control:
       subject: 'group:ildeposito_stage'
       policy: 'one_factor'
 
+    # --- admin.ildeposito.org ---
+    # Backend Drupal produzione. Stessa struttura di admin-stage sopra, ma
+    # sul gruppo ambiente ildeposito_prod: chi è SIA admins CHE
+    # ildeposito_prod passa per due fattori, gli altri membri di
+    # ildeposito_prod restano a un fattore solo. Regola più specifica
+    # (two_factor) PRIMA di quella più permissiva (one_factor).
+    - domain: 'admin.ildeposito.org'
+      subject:
+        - ['group:admins', 'group:ildeposito_prod']
+      policy: 'two_factor'
+    - domain: 'admin.ildeposito.org'
+      subject: 'group:ildeposito_prod'
+      policy: 'one_factor'
+
     # --- stats.ildeposito.org ---
     # Chi è SIA admins CHE ildeposito_stats deve passare per due fattori
     # (stessa sintassi lista-di-liste di admin-stage.ildeposito.org sopra);

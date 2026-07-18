@@ -58,10 +58,10 @@ identity_providers:
           - policy: 'one_factor'
             subject: 'group:ildeposito_stage'
 
-      # Per quando admin.ildeposito.org (prod) sarà collegato: due fattori,
-      # e AND esplicito su admins+ildeposito_prod (sintassi lista-di-liste:
-      # primo livello = OR, secondo livello = AND) — stessa logica "admin
-      # diversi per stage e per prod" descritta in users_database.yml.example.
+      # admin.ildeposito.org (prod): due fattori, e AND esplicito su
+      # admins+ildeposito_prod (sintassi lista-di-liste: primo livello = OR,
+      # secondo livello = AND) — stessa logica "admin diversi per stage e
+      # per prod" descritta in users_database.yml.example.
       ildeposito_prod_admins:
         default_policy: 'deny'
         rules:
@@ -105,26 +105,32 @@ identity_providers:
           - 'code'
         userinfo_signed_response_alg: 'none'
 
-      # --- admin.ildeposito.org — Drupal, ambiente prod (FUTURO: scommenta
-      # quando il sito prod è pronto, con un client_secret proprio, diverso
-      # da quello di stage) ---
-      # - client_id: 'drupal-ildeposito-prod'
-      #   client_name: 'Drupal ilDeposito (prod)'
-      #   client_secret: '$pbkdf2-sha512$...'
-      #   public: false
-      #   authorization_policy: 'ildeposito_prod_admins'
-      #   redirect_uris:
-      #     - 'https://admin.ildeposito.org/openid-connect/generic'
-      #   scopes:
-      #     - 'openid'
-      #     - 'profile'
-      #     - 'email'
-      #     - 'groups'
-      #   grant_types:
-      #     - 'authorization_code'
-      #   response_types:
-      #     - 'code'
-      #   userinfo_signed_response_alg: 'none'
+      # --- admin.ildeposito.org — Drupal, ambiente prod (attivo) ---
+      - client_id: 'drupal-ildeposito-prod'
+        client_name: 'Drupal ilDeposito (prod)'
+        # Hash pbkdf2-sha512 del client secret reale, MAI il secret in
+        # chiaro — generalo con:
+        #   ./script.sh authelia hash-oidc 'il-client-secret-vero'
+        # e incolla il secret IN CHIARO (non l'hash) nella config del modulo
+        # openid_connect di Drupal. Quello sotto è solo un placeholder nel
+        # FORMATO giusto (serve per far passare `authelia config validate`
+        # su questo file) — non è un secret vero, va rigenerato. DEVE essere
+        # diverso dal client_secret usato per stage.
+        client_secret: '$pbkdf2-sha512$310000$ia4sjWxnmmvyI5wufhyALw$U1hev8M0I.mqWLSB2KlWM7vvLBC3Bl.ekxJqd3VTPctTM9A/z7bPTNebhI/9dmIyoonZL7VB1uCuMTC1oPO37Q'
+        public: false
+        authorization_policy: 'ildeposito_prod_admins'
+        redirect_uris:
+          - 'https://admin.ildeposito.org/openid-connect/generic'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'groups'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        userinfo_signed_response_alg: 'none'
 
       # Altri siti/app in futuro: aggiungi qui un nuovo blocco client (e,
       # se serve una policy diversa da quelle sopra, una nuova voce in
