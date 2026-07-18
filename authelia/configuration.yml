@@ -97,6 +97,20 @@ access_control:
       subject: 'group:ildeposito_stage'
       policy: 'one_factor'
 
+    # --- stats.ildeposito.org ---
+    # Chi è SIA admins CHE ildeposito_stats deve passare per due fattori
+    # (stessa sintassi lista-di-liste di admin-stage.ildeposito.org sopra);
+    # chi è SIA users CHE ildeposito_stats resta a un fattore solo. Regola
+    # più specifica (two_factor) PRIMA di quella più permissiva (one_factor).
+    - domain: 'stats.ildeposito.org'
+      subject:
+        - ['group:admins', 'group:ildeposito_stats']
+      policy: 'two_factor'
+    - domain: 'stats.ildeposito.org'
+      subject:
+        - ['group:users', 'group:ildeposito_stats']
+      policy: 'one_factor'
+
     # --- portainer.whalestudio.dev ---
     # Gate di rete davanti a Portainer (accesso Docker = root-equivalente):
     # due fattori, e AND esplicito su admins+portainer (stessa sintassi
