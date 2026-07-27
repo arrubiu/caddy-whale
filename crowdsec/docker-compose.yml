@@ -16,6 +16,8 @@ services:
     ports:
       # LAPI esposta solo su localhost — usata dal firewall bouncer sull'host
       - "127.0.0.1:8080:8080"
+      # Metriche Prometheus esposte solo su localhost
+      - "127.0.0.1:6060:6060"
     networks:
       - crowdsec
 
