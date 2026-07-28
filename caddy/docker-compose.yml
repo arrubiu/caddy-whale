@@ -37,9 +37,9 @@ services:
       - --log-format=CADDY
       - --real-time-html
       - --output=/report/index.html
-      - --addr=0.0.0.0                          # <-- Fondamentale: ascolta su tutte le interfacce di rete
+      - --addr=0.0.0.0
       - --port=7890
-      - --ws-url=wss://caddy.ildeposito.org/ws
+      - --ws-url=wss://caddy.ildeposito.org:443/ws     # <-- Specificato :443 esplicitamente!
       - --origin=https://caddy.ildeposito.org
     labels:
       caddy: caddy.ildeposito.org
