@@ -24,11 +24,47 @@ services:
       - caddy
       # - crowdsec  # TODO: decommentare (vedi README > TODO CrowdSec)
 
+goaccess:
+    image: allinurl/goaccess:1.11
+    container_name: goaccess
+    restart: unless-stopped
+    # Porta per la connessione WebSocket real-time (se vuoi report live)
+    ports:
+      - "7890:7890"
+    volumes:
+      - caddy_logs:/var/log/caddy:ro
+      - goaccess_html:/report
+    # Sostituisci "access.log" con il nome reale del tuo file di log in /var/log/caddy
+    command: >
+      goaccess /var/log/caddy/access.log
+      --log-format=CADDY
+      --real-time-html
+      --output=/report/index.html
+      --port=7890
+    labels:
+      caddy: caddy.ildeposito.org
+      # 0-2. Pulizia degli header per prevenire spoofing
+      caddy.route.0_request_header: "-Remote-User"
+      caddy.route.1_request_header: "-Remote-Groups"
+      caddy.route.2_request_header: "-Remote-Email"
+      # 3. Authelia Forward Auth (viene valutato per primo)
+      caddy.route.3_forward_auth: "authelia:9091"
+      caddy.route.3_forward_auth.uri: "/api/authz/forward-auth"
+      caddy.route.3_forward_auth.copy_headers: "Remote-User Remote-Groups Remote-Email"
+      # 4. Reverse Proxy per le connessioni WebSocket su /ws
+      caddy.route.4_reverse_proxy: "/ws {{upstreams 7890}}"
+      # 5-6. Servizio file statici HTML per tutto il resto
+      caddy.route.5_root: "* /var/www/html/goaccess"
+      caddy.route.6_file_server: ""
+    networks:
+      - caddy
+
 volumes:
   caddy_data:
   caddy_config:
   caddy_logs:
     external: true
+  goaccess_html:
 
 networks:
   caddy:

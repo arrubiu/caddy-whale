@@ -125,6 +125,13 @@ access_control:
         - ['group:users', 'group:ildeposito_stats']
       policy: 'one_factor'
 
+
+    # --- caddy.ildeposito.org ---
+    - domain: 'caddy.ildeposito.org'
+      subject:
+        - ['group:goaccess']
+      policy: 'one_factor'
+
     # --- portainer.whalestudio.dev ---
     # Gate di rete davanti a Portainer (accesso Docker = root-equivalente):
     # due fattori, e AND esplicito su admins+portainer (stessa sintassi
