@@ -37,6 +37,7 @@ services:
       - --log-format=CADDY
       - --real-time-html
       - --output=/report/index.html
+      - --addr=0.0.0.0                          # <-- Fondamentale: ascolta su tutte le interfacce di rete
       - --port=7890
       - --ws-url=wss://caddy.ildeposito.org/ws
       - --origin=https://caddy.ildeposito.org
@@ -50,9 +51,8 @@ services:
       caddy.route.3_forward_auth: "authelia:9091"
       caddy.route.3_forward_auth.uri: "/api/authz/forward-auth"
       caddy.route.3_forward_auth.copy_headers: "Remote-User Remote-Groups Remote-Email"
-      # 4. Rimuove il prefisso /ws e gira la connessione WebSocket a GoAccess
-      caddy.route.4_handle_path: "/ws*"
-      caddy.route.4_handle_path.reverse_proxy: "{{upstreams 7890}}"
+      # 4. Reverse Proxy per il WebSocket
+      caddy.route.4_reverse_proxy: "/ws* {{upstreams 7890}}"
       # 5-6. Servizio file statici HTML generati da GoAccess
       caddy.route.5_root: "* /var/www/html/goaccess"
       caddy.route.6_file_server: ""
