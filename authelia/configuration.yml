@@ -128,8 +128,7 @@ access_control:
 
     # --- caddy.ildeposito.org ---
     - domain: 'caddy.ildeposito.org'
-      subject:
-        - ['group:goaccess']
+      subject: 'group:goaccess'
       policy: 'one_factor'
 
     # --- portainer.whalestudio.dev ---
