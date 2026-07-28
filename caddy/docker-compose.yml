@@ -20,6 +20,7 @@ services:
       - caddy_logs:/var/log/caddy
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - goaccess_html:/var/www/html/goaccess
     networks:
       - caddy
       # - crowdsec  # TODO: decommentare (vedi README > TODO CrowdSec)
@@ -30,7 +31,7 @@ services:
     restart: unless-stopped
     volumes:
       - caddy_logs:/var/log/caddy:ro
-      - goaccess_html:/report
+      - goaccess_html:/report                 # <-- Scrive l'index.html qui dentro
     command:
       - /var/log/caddy/caddy.log
       - --log-format=CADDY
@@ -40,18 +41,14 @@ services:
       - --ws-url=wss://caddy.ildeposito.org/ws
     labels:
       caddy: caddy.ildeposito.org
-      # 0-2. Pulizia degli header per prevenire spoofing
       caddy.route.0_request_header: "-Remote-User"
       caddy.route.1_request_header: "-Remote-Groups"
       caddy.route.2_request_header: "-Remote-Email"
-      # 3. Authelia Forward Auth
       caddy.route.3_forward_auth: "authelia:9091"
       caddy.route.3_forward_auth.uri: "/api/authz/forward-auth"
       caddy.route.3_forward_auth.copy_headers: "Remote-User Remote-Groups Remote-Email"
-      # 4. Reverse Proxy per il WebSocket
       caddy.route.4_reverse_proxy: "/ws {{upstreams 7890}}"
-      # 5-6. Servizio file statici HTML generati da GoAccess
-      caddy.route.5_root: "/var/www/html/goaccess"
+      caddy.route.5_root: "* /var/www/html/goaccess"
       caddy.route.6_file_server: ""
     networks:
       - caddy
