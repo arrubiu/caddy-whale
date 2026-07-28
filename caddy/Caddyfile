@@ -21,4 +21,14 @@
         }
         format json
     }
+
+    # 1. Abilita le metriche Prometheus distinte per ogni dominio
+    servers {
+        metrics
+    }
+    metrics {
+        per_host
+    }
+
+    
 }
