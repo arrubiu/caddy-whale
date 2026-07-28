@@ -31,15 +31,13 @@ services:
     volumes:
       - caddy_logs:/var/log/caddy:ro
       - goaccess_html:/report
-    entrypoint: ["sh", "-c"]
-    command: >
-      touch /var/log/caddy/caddy.log &&
-      exec goaccess /var/log/caddy/caddy.log
-      --log-format=CADDY
-      --real-time-html
-      --output=/report/index.html
-      --port=7890
-      --ws-url=wss://caddy.ildeposito.org/ws
+    command:
+      - /var/log/caddy/caddy.log
+      - --log-format=CADDY
+      - --real-time-html
+      - --output=/report/index.html
+      - --port=7890
+      - --ws-url=wss://caddy.ildeposito.org/ws
     labels:
       caddy: caddy.ildeposito.org
       # 0-2. Pulizia degli header per prevenire spoofing
@@ -57,6 +55,8 @@ services:
       caddy.route.6_file_server: ""
     networks:
       - caddy
+
+
 volumes:
   caddy_data:
   caddy_config:
