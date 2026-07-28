@@ -11,6 +11,9 @@
     #     ticker_interval 15s
     # }
 
+    # Abilita l'ascolto dell'API e delle metriche per gli altri container Docker
+    admin 0.0.0.0:2019
+
     # Log operativi di Caddy in JSON (errori, TLS, admin events)
     # I log di accesso HTTP per-sito vanno configurati via label su ogni servizio
     log {
