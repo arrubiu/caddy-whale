@@ -24,7 +24,7 @@ services:
       - caddy
       # - crowdsec  # TODO: decommentare (vedi README > TODO CrowdSec)
 
-goaccess:
+  goaccess:
     image: allinurl/goaccess:1.11
     container_name: goaccess
     restart: unless-stopped
