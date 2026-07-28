@@ -42,7 +42,7 @@ services:
       - --ws-url=wss://caddy.ildeposito.org:443/ws     # <-- Specificato :443 esplicitamente!
       - --origin=https://caddy.ildeposito.org
     labels:
-      caddy: caddy.ildeposito.org
+      caddy: caddy.whalestudio.dev
       # 0-2. Pulizia degli header per prevenire spoofing
       caddy.route.0_request_header: "-Remote-User"
       caddy.route.1_request_header: "-Remote-Groups"
