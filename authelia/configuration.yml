@@ -126,8 +126,8 @@ access_control:
       policy: 'one_factor'
 
 
-    # --- caddy.ildeposito.org ---
-    - domain: 'caddy.ildeposito.org'
+    # --- caddy.whalestudio.dev ---
+    - domain: 'caddy.whalestudio.dev'
       subject: 'group:goaccess'
       policy: 'one_factor'
 
