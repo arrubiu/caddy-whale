@@ -39,8 +39,8 @@ services:
       - --output=/report/index.html
       - --addr=0.0.0.0
       - --port=7890
-      - --ws-url=wss://caddy.ildeposito.org:443/ws     # <-- Specificato :443 esplicitamente!
-      - --origin=https://caddy.ildeposito.org
+      - --ws-url=wss://caddy.whalestudio.dev:443/ws     # <-- Specificato :443 esplicitamente!
+      - --origin=https://caddy.whalestudio.dev
     labels:
       caddy: caddy.whalestudio.dev
       # 0-2. Pulizia degli header per prevenire spoofing
